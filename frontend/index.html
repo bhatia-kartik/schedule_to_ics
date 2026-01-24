@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Schedule to ICS</title>
+    <style>
+    /* ---------- Theme ---------- */
+    :root {
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --border: #e1e4e8;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --accent: #374151;
+      --hover: #f1f3f5;
+    }
+
+    /* ---------- Base ---------- */
+    body {
+      margin: 0;
+      padding: 40px;
+      background: var(--bg);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text);
+    }
+
+    h2 {
+      margin: 0 0 20px 0;
+      font-weight: 600;
+      font-size: 22px;
+    }
+
+    h3 {
+      margin: 32px 0 12px 0;
+      font-weight: 600;
+      font-size: 16px;
+      color: var(--accent);
+    }
+
+    /* ---------- Layout ---------- */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: var(--panel);
+      padding: 28px 32px 32px;
+      border: 1px solid var(--border);
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    /* ---------- Inputs ---------- */
+    input[type="file"] {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    input[type="date"],
+    input[type="number"] {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 14px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* ---------- Buttons ---------- */
+    button {
+      padding: 8px 14px;
+      font-size: 14px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border 0.15s;
+    }
+
+    button:hover {
+      background: var(--hover);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    button.primary:hover {
+      background: #111827;
+    }
+
+    button.danger {
+      color: #9b1c1c;
+    }
+
+    #addRowBtn {
+      margin: 10px 0 0;
+    }
+
+    /* ---------- Table ---------- */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 8px;
+      text-align: left;
+    }
+
+    th {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      background: #fafafa;
+    }
+
+    tr:hover td {
+      background: #fafafa;
+    }
+
+    td[contenteditable="true"] {
+      background: transparent;
+    }
+
+    td[contenteditable="true"]:focus {
+      outline: none;
+      background: #fff;
+    }
+
+    td button {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    /* ---------- Footer Panel ---------- */
+    #extraFields {
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      max-width: 360px;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h2>Schedule To ICS</h2>
+  <input type="file" id="fileInput" />
+  <button id="uploadBtn">Upload</button>
+
+  <button id="addRowBtn" class="hidden">Add Row</button>
+  <div id="tableContainer"></div>
+
+  <!-- extra fields: hidden initially -->
+  <div id="extraFields" class="hidden">
+    <h3>Calendar Settings</h3>
+
+    <label>
+      Start Date:
+      <input type="date" id="startDate" />
+    </label>
+
+    <label>
+      End Date:
+      <input type="date" id="endDate" />
+    </label>
+
+    <label>
+      Reminder (minutes before):
+      <input type="number" id="reminder" value="30" />
+    </label>
+
+    <button id="downloadBtn">Download .ics</button>
+  </div>
+
+  <script>
+    const tableContainer = document.getElementById("tableContainer");
+    const extraFields = document.getElementById("extraFields");
+
+    let rows = [];
+
+    document.getElementById("uploadBtn").onclick = async () => {
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("http://localhost:8001/upload", {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await res.json();
+      rows = data.rows;
+
+      buildTable(rows);
+      showExtraFields();
+    };
+
+    function showExtraFields() {
+  extraFields.classList.remove("hidden");
+  document.getElementById("addRowBtn").classList.remove("hidden");
+
+  const today = new Date();
+  const threeMonths = new Date();
+  threeMonths.setMonth(threeMonths.getMonth() + 3);
+
+  document.getElementById("startDate").value = today.toISOString().split("T")[0];
+  document.getElementById("endDate").value = threeMonths.toISOString().split("T")[0];
+}
+
+
+    function buildTable(rows) {
+      const table = document.createElement("table");
+
+      const headers = [
+  { key: "course_code", label: "Class Name" },
+  { key: "session_type", label: "Class Type" },
+  { key: "days", label: "Days" },
+  { key: "time", label: "Time" },
+  { key: "location", label: "Location" },
+  { key: "__delete__", label: "" }
+];
+
+
+      const thead = document.createElement("thead");
+      const tr = document.createElement("tr");
+
+      headers.forEach(h => {
+        const th = document.createElement("th");
+        th.textContent = h.label;
+        tr.appendChild(th);
+      });
+
+      thead.appendChild(tr);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+
+      rows.forEach((row, rowIndex) => {
+        const tr = document.createElement("tr");
+
+        headers.forEach(col => {
+  const td = document.createElement("td");
+
+  if (col.key === "__delete__") {
+    const btn = document.createElement("button");
+    btn.textContent = "Delete";
+    btn.onclick = () => {
+      rows.splice(rowIndex, 1);
+      buildTable(rows);
+    };
+    td.appendChild(btn);
+    tr.appendChild(td);
+    return;
+  }
+
+  let value = "";
+  if (col.key === "time") {
+    value = `${row.start_time} - ${row.end_time}`;
+  } else if (col.key === "location") {
+    value = `${row.building} ${row.room}`;
+  } else {
+    value = row[col.key] || "";
+  }
+
+  td.textContent = value;
+  td.contentEditable = true;
+
+  td.addEventListener("input", () => {
+    if (col.key === "time") {
+      const [start, end] = td.textContent.split("-").map(s => s.trim());
+      row.start_time = start || row.start_time;
+      row.end_time = end || row.end_time;
+    } else if (col.key === "location") {
+      const parts = td.textContent.trim().split(" ");
+      row.room = parts.pop();
+      row.building = parts.join(" ");
+    } else {
+      row[col.key] = td.textContent;
+    }
+  });
+
+  tr.appendChild(td);
+});
+
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      tableContainer.innerHTML = "";
+      tableContainer.appendChild(table);
+    }
+
+    document.getElementById("addRowBtn").onclick = () => {
+  rows.push({
+    course_code: "",
+    session_type: "",
+    days: "",
+    start_time: "9:00 AM",
+    end_time: "10:00 AM",
+    building: "",
+    room: ""
+  });
+  buildTable(rows);
+};
+
+
+    // ---------- ICS DOWNLOAD (BACKEND) ----------
+    document.getElementById("downloadBtn").onclick = async () => {
+      const startDate = document.getElementById("startDate").value;
+      const endDate = document.getElementById("endDate").value;
+      const reminder = document.getElementById("reminder").value;
+
+      const payload = {
+        rows,
+        start_date: startDate,
+        end_date: endDate,
+        reminder: reminder
+      };
+
+      const res = await fetch("http://localhost:8001/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "classes.ics";
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+  </script>
+</body>
+</html>
