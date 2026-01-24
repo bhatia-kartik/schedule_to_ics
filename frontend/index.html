@@ -210,7 +210,7 @@
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("http://localhost:8001/upload", {
+      const res = await fetch("https://schedule-to-ics.onrender.com/upload", {
         method: "POST",
         body: formData
       });
@@ -345,7 +345,7 @@
         reminder: reminder
       };
 
-      const res = await fetch("http://localhost:8001/download", {
+      const res = await fetch("https://schedule-to-ics.onrender.com/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
